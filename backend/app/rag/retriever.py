@@ -9,9 +9,14 @@ embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME)
 INDEXES_DIR = "faiss_indexes"
 
 
+def _safe_folder_name(doc_name: str) -> str:
+    name = doc_name.replace(".pdf", "").replace(".PDF", "")
+    return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in name)
+
+
 def search_documents(question: str, selected_document: str = None):
     if selected_document:
-        index_path = os.path.join(INDEXES_DIR, selected_document.replace(".pdf", ""))
+        index_path = os.path.join(INDEXES_DIR, _safe_folder_name(selected_document))
         if not os.path.exists(index_path):
             return []
         vector_store = FAISS.load_local(

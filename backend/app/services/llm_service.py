@@ -16,6 +16,9 @@ Rules:
 
 
 def _build_prompt(question: str, docs: list, history: list = None) -> str:
+    if not docs:
+        return f"{SYSTEM_PROMPT}\n\nContext:\n[No relevant content found in the uploaded document.]\n\nQuestion:\n{question}\n\nAnswer:"
+
     context = "\n\n".join(doc.page_content for doc in docs)
 
     history_text = ""

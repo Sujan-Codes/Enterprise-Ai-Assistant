@@ -30,11 +30,11 @@ async def upload_document(file: UploadFile = File(...)):
             detail="Only PDF files are allowed."
         )
 
-    file_path, documents, chunks = save_document(file)
+    file_path, documents, chunks, safe_name = save_document(file)
 
     return {
         "message": "Document uploaded successfully",
-        "filename": file.filename,
+        "filename": safe_name,
         "pages": len(documents),
         "chunks_created": len(chunks),
         "first_chunk": chunks[0].page_content[:300]
