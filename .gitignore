@@ -15,8 +15,9 @@ venv/
 env/
 .env
 
-# FAISS index (large binary, regenerated on upload)
+# FAISS indexes (large binary, regenerated on upload)
 backend/faiss_index/
+backend/faiss_indexes/
 
 # Uploaded documents (user data, not source code)
 backend/documents/*.pdf

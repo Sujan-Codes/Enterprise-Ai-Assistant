@@ -1,13 +1,12 @@
 import { useState, useRef } from "react";
 
-function ChatInput({ chatId, messages, selectedDoc, onAttach, onUpdate }) {
+function ChatInput({ messages, selectedDoc, onAttach, onUpdate }) {
   const [question, setQuestion] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [pendingDoc, setPendingDoc] = useState(null);
   const fileInputRef = useRef(null);
 
-  const activeDoc = selectedDoc || pendingDoc;
+  const activeDoc = selectedDoc;
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -15,8 +14,7 @@ function ChatInput({ chatId, messages, selectedDoc, onAttach, onUpdate }) {
     if (!file) return;
     setUploading(true);
     try {
-      const filename = await onAttach(file);
-      if (filename) setPendingDoc(filename);
+      await onAttach(file);
     } catch {
       alert("Upload failed");
     } finally {
@@ -34,7 +32,6 @@ function ChatInput({ chatId, messages, selectedDoc, onAttach, onUpdate }) {
     const isFirstMessage = messages.length === 0;
     onUpdate(nextMessages, isFirstMessage ? question.slice(0, 40) : undefined);
     setQuestion("");
-    setPendingDoc(null);
     setStreaming(true);
 
     const history = messages.map((m) => ({
@@ -98,9 +95,7 @@ function ChatInput({ chatId, messages, selectedDoc, onAttach, onUpdate }) {
       {activeDoc && (
         <div className="attachment-chip">
           <span>📄 {activeDoc}</span>
-          {!selectedDoc && (
-            <button className="chip-dismiss" onClick={() => setPendingDoc(null)}>✕</button>
-          )}
+  
         </div>
       )}
 

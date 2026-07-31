@@ -59,7 +59,7 @@ function Chat() {
       <div className="chat-section">
         <ChatWindow messages={activeChat.messages} attachedDoc={activeChat.attachedDoc} />
         <ChatInput
-          chatId={activeChatId}
+          key={activeChatId}
           messages={activeChat.messages}
           selectedDoc={activeChat.attachedDoc}
           onAttach={handleAttach}

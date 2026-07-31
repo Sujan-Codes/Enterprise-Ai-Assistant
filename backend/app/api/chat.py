@@ -23,9 +23,9 @@ class ChatRequest(BaseModel):
 
 @router.post("/")
 def chat(request: ChatRequest):
-    query = rewrite_query(request.question, request.history)
+    query = rewrite_query(request.question, request.history) if request.history else request.question
     docs = search_documents(query, request.selected_document)
-    answer = generate_answer(request.question, docs, request.history)
+    answer = generate_answer(query, docs, request.history)
 
     unique_sources = []
     seen = set()
@@ -42,7 +42,7 @@ def chat(request: ChatRequest):
 
 @router.post("/stream")
 def chat_stream(request: ChatRequest):
-    query = rewrite_query(request.question, request.history)
+    query = rewrite_query(request.question, request.history) if request.history else request.question
     docs = search_documents(query, request.selected_document)
 
     unique_sources = []
@@ -56,7 +56,7 @@ def chat_stream(request: ChatRequest):
             unique_sources.append({"page": page, "source": source})
 
     def event_stream():
-        for token in stream_answer(request.question, docs, request.history):
+        for token in stream_answer(query, docs, request.history):
             yield f"data: {json.dumps({'token': token})}\n\n"
         yield f"data: {json.dumps({'done': True, 'sources': unique_sources})}\n\n"
 
