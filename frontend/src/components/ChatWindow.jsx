@@ -7,7 +7,7 @@ function formatTime(date) {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function ChatWindow({ messages }) {
+function ChatWindow({ messages, attachedDoc }) {
   const bottomRef = useRef(null);
 
   useEffect(() => {
@@ -16,11 +16,19 @@ function ChatWindow({ messages }) {
 
   return (
     <div className="chat-window">
+      {attachedDoc && (
+        <div className="chat-doc-header">
+          📄 {attachedDoc}
+        </div>
+      )}
+
       {messages.length === 0 && (
         <div className="bubble ai">
           <span className="bubble-avatar">🤖</span>
           <div className="bubble-content">
-            Hello 👋 Upload a document and ask questions.
+            {attachedDoc
+              ? "Ask me anything about this document."
+              : "Hello 👋 Upload a PDF to get started."}
           </div>
         </div>
       )}

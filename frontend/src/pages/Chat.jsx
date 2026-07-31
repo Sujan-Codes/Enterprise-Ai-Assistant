@@ -2,9 +2,15 @@ import { useState, useCallback } from "react";
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
 import ChatInput from "../components/ChatInput";
+import api from "../services/api";
 
 let nextId = 1;
-const newChat = () => ({ id: nextId++, title: "New Chat", messages: [], selectedDoc: null });
+const newChat = (title = "New Chat", attachedDoc = null) => ({
+  id: nextId++,
+  title,
+  attachedDoc,
+  messages: [],
+});
 
 function Chat() {
   const [chats, setChats] = useState([newChat()]);
@@ -22,6 +28,26 @@ function Chat() {
     setActiveChatId(chat.id);
   };
 
+  const handleUpload = async (file) => {
+    if (!file) return null;
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await api.post("/documents/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data.filename;
+  };
+
+  const handleAttach = async (file) => {
+    const filename = await handleUpload(file);
+    if (!filename) return;
+    const title = filename.replace(/\.pdf$/i, "");
+    const chat = newChat(title, filename);
+    setChats((prev) => [...prev, chat]);
+    setActiveChatId(chat.id);
+    return filename;
+  };
+
   return (
     <div className="container">
       <Sidebar
@@ -29,15 +55,14 @@ function Chat() {
         activeChatId={activeChatId}
         onSelectChat={setActiveChatId}
         onNewChat={handleNewChat}
-        selectedDoc={activeChat.selectedDoc}
-        setSelectedDoc={(doc) => updateChat(activeChatId, { selectedDoc: doc })}
       />
       <div className="chat-section">
-        <ChatWindow messages={activeChat.messages} />
+        <ChatWindow messages={activeChat.messages} attachedDoc={activeChat.attachedDoc} />
         <ChatInput
           chatId={activeChatId}
           messages={activeChat.messages}
-          selectedDoc={activeChat.selectedDoc}
+          selectedDoc={activeChat.attachedDoc}
+          onAttach={handleAttach}
           onUpdate={(messages, title) =>
             updateChat(activeChatId, title ? { messages, title } : { messages })
           }

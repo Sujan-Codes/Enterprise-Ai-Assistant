@@ -19,13 +19,12 @@ def search_documents(question: str, selected_document: str = None):
         allow_dangerous_deserialization=True
     )
 
-    filter_dict = None
-    if selected_document:
-        filter_dict = {"source": selected_document}
+    docs = vector_store.max_marginal_relevance_search(question, k=4, fetch_k=20)
 
-    return vector_store.max_marginal_relevance_search(
-        question,
-        k=4,
-        fetch_k=10,
-        filter=filter_dict
-    )
+    if selected_document:
+        docs = [
+            doc for doc in docs
+            if os.path.basename(doc.metadata.get("source", "")) == selected_document
+        ]
+
+    return docs

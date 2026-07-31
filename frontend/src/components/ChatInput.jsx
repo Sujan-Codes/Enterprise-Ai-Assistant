@@ -1,8 +1,28 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
-function ChatInput({ chatId, messages, selectedDoc, onUpdate }) {
+function ChatInput({ chatId, messages, selectedDoc, onAttach, onUpdate }) {
   const [question, setQuestion] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingDoc, setPendingDoc] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const activeDoc = selectedDoc || pendingDoc;
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const filename = await onAttach(file);
+      if (filename) setPendingDoc(filename);
+    } catch {
+      alert("Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const askQuestion = async () => {
     if (!question.trim() || streaming) return;
@@ -14,6 +34,7 @@ function ChatInput({ chatId, messages, selectedDoc, onUpdate }) {
     const isFirstMessage = messages.length === 0;
     onUpdate(nextMessages, isFirstMessage ? question.slice(0, 40) : undefined);
     setQuestion("");
+    setPendingDoc(null);
     setStreaming(true);
 
     const history = messages.map((m) => ({
@@ -25,7 +46,7 @@ function ChatInput({ chatId, messages, selectedDoc, onUpdate }) {
       const res = await fetch("http://127.0.0.1:8000/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history, selected_document: selectedDoc || undefined }),
+        body: JSON.stringify({ question, history, selected_document: activeDoc || undefined }),
       });
 
       const reader = res.body.getReader();
@@ -51,7 +72,9 @@ function ChatInput({ chatId, messages, selectedDoc, onUpdate }) {
           } else if (data.done) {
             onUpdate(
               nextMessages.map((m, i) =>
-                i === nextMessages.length - 1 ? { ...m, text: accumulated, sources: data.sources } : m
+                i === nextMessages.length - 1
+                  ? { ...m, text: accumulated, sources: data.sources }
+                  : m
               )
             );
           }
@@ -71,17 +94,43 @@ function ChatInput({ chatId, messages, selectedDoc, onUpdate }) {
   };
 
   return (
-    <div className="chat-input">
-      <input
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        placeholder={selectedDoc ? `Ask about ${selectedDoc}…` : "Ask anything…"}
-        onKeyDown={(e) => { if (e.key === "Enter") askQuestion(); }}
-        disabled={streaming}
-      />
-      <button onClick={askQuestion} disabled={streaming}>
-        {streaming ? "…" : "Send"}
-      </button>
+    <div className="input-area">
+      {activeDoc && (
+        <div className="attachment-chip">
+          <span>📄 {activeDoc}</span>
+          {!selectedDoc && (
+            <button className="chip-dismiss" onClick={() => setPendingDoc(null)}>✕</button>
+          )}
+        </div>
+      )}
+
+      <div className="chat-input">
+        <button
+          className="attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={streaming || uploading}
+          title="Attach PDF"
+        >
+          {uploading ? "⏳" : "+"}
+        </button>
+        <input
+          type="file"
+          accept=".pdf"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          hidden
+        />
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder={activeDoc ? `Ask about ${activeDoc}…` : "Ask anything or attach a PDF…"}
+          onKeyDown={(e) => { if (e.key === "Enter") askQuestion(); }}
+          disabled={streaming}
+        />
+        <button onClick={askQuestion} disabled={streaming || !question.trim()}>
+          {streaming ? "…" : "Send"}
+        </button>
+      </div>
     </div>
   );
 }
