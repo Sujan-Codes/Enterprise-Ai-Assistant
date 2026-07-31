@@ -23,10 +23,7 @@ class ChatRequest(BaseModel):
 
 @router.post("/")
 def chat(request: ChatRequest):
-    query = request.question
-    if request.history:
-        query = rewrite_query(request.question, request.history)
-
+    query = rewrite_query(request.question, request.history)
     docs = search_documents(query, request.selected_document)
     answer = generate_answer(request.question, docs, request.history)
 
@@ -45,10 +42,7 @@ def chat(request: ChatRequest):
 
 @router.post("/stream")
 def chat_stream(request: ChatRequest):
-    query = request.question
-    if request.history:
-        query = rewrite_query(request.question, request.history)
-
+    query = rewrite_query(request.question, request.history)
     docs = search_documents(query, request.selected_document)
 
     unique_sources = []

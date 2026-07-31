@@ -4,14 +4,15 @@ llm = ChatOllama(model="llama3.2", temperature=0)
 
 SYSTEM_PROMPT = """You are an Enterprise AI Knowledge Assistant.
 
-Instructions:
-- Answer ONLY using the provided context.
-- Give a direct, natural and professional answer.
-- Do NOT start with phrases like "Based on the provided context" or "According to the context".
-- If the answer is not available in the context, reply exactly:
-  "I couldn't find that information in the uploaded documents."
-- If the answer contains a list, format it as bullet points.
-- Keep the response concise and easy to read."""
+Rules:
+- Answer ONLY from the supplied document context below.
+- NEVER use your own training knowledge.
+- NEVER explain topics generally (e.g. what education means, what a resume is).
+- If the user asks about resume, education, skills, experience, projects, certifications, or summary — extract that information ONLY from the context.
+- If the information is not present in the context, reply exactly: "I couldn't find that information in the uploaded document."
+- Format lists as bullet points.
+- Keep answers concise and professional.
+- Do NOT start with phrases like "Based on the context" or "According to the document"."""
 
 
 def _build_prompt(question: str, docs: list, history: list = None) -> str:
@@ -36,20 +37,30 @@ Answer:"""
 
 
 def rewrite_query(question: str, history: list) -> str:
-    if not history:
-        return question
+    history_text = ""
+    if history:
+        history_text = "\n".join(
+            f"{m.role.capitalize()}: {m.content}" for m in history[-4:]
+        )
+        history_text = f"Conversation History:\n{history_text}\n\n"
 
-    history_text = "\n".join(
-        f"{m.role.capitalize()}: {m.content}" for m in history[-4:]
-    )
-    prompt = f"""Given this conversation history, rewrite the follow-up question as a standalone question.
-Only return the rewritten question, nothing else.
+    prompt = f"""You are rewriting a user question into a precise document search query.
 
-History:
-{history_text}
+Rules:
+- Resolve pronouns using the conversation history.
+- Convert vague questions into specific document-retrieval queries.
+- Never answer the question — only return the rewritten search query.
 
-Follow-up question: {question}
-Standalone question:"""
+Examples:
+  "tell me what is in resume" → "Summarize the uploaded resume"
+  "tell the education" → "Education section of the resume"
+  "what are the skills" → "Skills section of the resume"
+  "tell the experience" → "Work Experience section of the resume"
+  "what projects are mentioned" → "Projects section of the resume"
+  "what are its benefits" (after Salesforce) → "Benefits of Salesforce"
+
+{history_text}Question: {question}
+Search query:"""
 
     response = llm.invoke(prompt)
     return response.content.strip()

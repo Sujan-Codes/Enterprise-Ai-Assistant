@@ -37,7 +37,10 @@ def status():
         models = []
         ollama_ok = False
 
-    faiss_ok = os.path.exists("faiss_index/index.faiss")
+    faiss_ok = os.path.exists("faiss_indexes") and any(
+        os.path.isdir(os.path.join("faiss_indexes", d))
+        for d in os.listdir("faiss_indexes")
+    ) if os.path.exists("faiss_indexes") else False
 
     doc_count = 0
     if os.path.exists("documents"):

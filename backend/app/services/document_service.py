@@ -23,6 +23,6 @@ def save_document(file: UploadFile):
 
     chunks = split_documents(documents)
 
-    vector_store = create_vector_store(chunks)
+    vector_store = create_vector_store(chunks, file.filename)
 
     return file_path, documents, chunks
