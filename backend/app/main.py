@@ -4,6 +4,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.upload import router as upload_router
 from app.api.chat import router as chat_router
+from app.api.conversation import router as conversation_router
+from app.api.message import router as message_router
+from app.models.document import Document
+from app.models.conversation import Conversation
+from app.models.message import Message
+
 
 app = FastAPI(
     title="Enterprise AI Knowledge Assistant",
@@ -23,7 +29,8 @@ app.add_middleware(
 
 app.include_router(upload_router)
 app.include_router(chat_router)
-
+app.include_router(conversation_router)
+app.include_router(message_router)
 
 @app.get("/status")
 def status():

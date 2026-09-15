@@ -1,13 +1,27 @@
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional
 import json
 
-from app.rag.retriever import search_documents
-from app.services.llm_service import generate_answer, rewrite_query, stream_answer
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from typing import List, Optional
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+from app.database import get_db
+from app.models.conversation import Conversation
+from app.models.message import Message
+
+from app.rag.retriever import search_documents
+from app.services.llm_service import (
+    generate_answer,
+    rewrite_query,
+    stream_answer
+)
+
+
+router = APIRouter(
+    prefix="/chat",
+    tags=["Chat"]
+)
 
 
 class HistoryMessage(BaseModel):
@@ -17,47 +31,138 @@ class HistoryMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str
+
     history: Optional[List[HistoryMessage]] = []
+
     selected_document: Optional[str] = None
+
+    conversation_id: Optional[int] = None
 
 
 @router.post("/")
-def chat(request: ChatRequest):
-    query = rewrite_query(request.question, request.history) if request.history else request.question
-    docs = search_documents(query, request.selected_document)
-    answer = generate_answer(query, docs, request.history)
+def chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+
+    # --------------------------------
+    # 1. Validate conversation
+    # --------------------------------
+
+    if not request.conversation_id:
+        raise HTTPException(
+            status_code=400,
+            detail="conversation_id is required"
+        )
+
+    conversation = db.query(Conversation).filter(
+        Conversation.id == request.conversation_id
+    ).first()
+
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+
+    # --------------------------------
+    # 2. Save USER message
+    # --------------------------------
+
+    user_message = Message(
+        conversation_id=conversation.id,
+        role="user",
+        content=request.question
+    )
+
+    db.add(user_message)
+    db.commit()
+    db.refresh(user_message)
+
+
+    # --------------------------------
+    # 3. Rewrite query if needed
+    # --------------------------------
+
+    query = request.question
+
+    if request.history:
+        query = rewrite_query(
+            request.question,
+            request.history
+        )
+
+
+    # --------------------------------
+    # 4. Retrieve documents from FAISS
+    # --------------------------------
+
+    docs = search_documents(
+        query,
+        request.selected_document
+    )
+
+
+    # --------------------------------
+    # 5. Generate AI answer
+    # --------------------------------
+
+    answer = generate_answer(
+        request.question,
+        docs,
+        request.history
+    )
+
+
+    # --------------------------------
+    # 6. Save AI message
+    # --------------------------------
+
+    assistant_message = Message(
+        conversation_id=conversation.id,
+        role="assistant",
+        content=answer
+    )
+
+    db.add(assistant_message)
+    db.commit()
+    db.refresh(assistant_message)
+
+
+    # --------------------------------
+    # 7. Prepare sources
+    # --------------------------------
 
     unique_sources = []
+
     seen = set()
+
     for doc in docs:
+
         source = doc.metadata.get("source")
         page = doc.metadata.get("page")
+
         key = (source, page)
+
         if key not in seen:
+
             seen.add(key)
-            unique_sources.append({"page": page, "source": source})
 
-    return {"question": request.question, "answer": answer, "sources": unique_sources}
+            unique_sources.append({
+                "page": page,
+                "source": source
+            })
 
 
-@router.post("/stream")
-def chat_stream(request: ChatRequest):
-    query = rewrite_query(request.question, request.history) if request.history else request.question
-    docs = search_documents(query, request.selected_document)
+    # --------------------------------
+    # 8. Return response
+    # --------------------------------
 
-    unique_sources = []
-    seen = set()
-    for doc in docs:
-        source = doc.metadata.get("source")
-        page = doc.metadata.get("page")
-        key = (source, page)
-        if key not in seen:
-            seen.add(key)
-            unique_sources.append({"page": page, "source": source})
-
-    def event_stream():
-        for token in stream_answer(query, docs, request.history):
-            yield f"data: {json.dumps({'token': token})}\n\n"
-        yield f"data: {json.dumps({'done': True, 'sources': unique_sources})}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return {
+        "question": request.question,
+        "answer": answer,
+        "conversation_id": conversation.id,
+        "message_id": assistant_message.id,
+        "sources": unique_sources
+    }

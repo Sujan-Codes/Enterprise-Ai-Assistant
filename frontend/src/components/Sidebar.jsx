@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../services/api";
+import ThemeToggle from "./ThemeToggle";
 
 function StatusCard() {
   const [status, setStatus] = useState(null);
@@ -51,6 +52,7 @@ function Sidebar({ chats, activeChatId, onSelectChat, onNewChat }) {
 
       <div style={{ flex: 1 }} />
       <StatusCard />
+      <ThemeToggle />
     </div>
   );
 }
